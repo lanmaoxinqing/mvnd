@@ -692,15 +692,15 @@ public class DaemonMavenCli {
 
             Map<String, String> references = new LinkedHashMap<>();
 
-            MavenProject project = null;
+            List<MavenProject> failedProjects = new ArrayList<>();
 
             for (Throwable exception : result.getExceptions()) {
                 ExceptionSummary summary = handler.handleException(exception);
 
                 logSummary(summary, references, "", cliRequest.showErrors);
 
-                if (project == null && exception instanceof LifecycleExecutionException) {
-                    project = ((LifecycleExecutionException) exception).getProject();
+                if (exception instanceof LifecycleExecutionException) {
+                    failedProjects.add(((LifecycleExecutionException) exception).getProject());
                 }
             }
 
@@ -725,11 +725,10 @@ public class DaemonMavenCli {
                 }
             }
 
-            if (project != null && !project.equals(result.getTopologicallySortedProjects().get(0))) {
+            if (result.canResume()) {
                 slf4jLogger.error("");
                 slf4jLogger.error("After correcting the problems, you can resume the build with the command");
-                slf4jLogger.error(buffer().a("  ").strong("mvn <args> -rf "
-                        + getResumeFrom(result.getTopologicallySortedProjects(), project)).toString());
+                slf4jLogger.error(buffer().a("  ").strong("mvn <args> -r").toString());
             }
 
             if (MavenExecutionRequest.REACTOR_FAIL_NEVER.equals(cliRequest.request.getReactorFailureBehavior())) {
@@ -1127,6 +1126,10 @@ public class DaemonMavenCli {
 
         if (commandLine.hasOption(CLIManager.RESUME_FROM)) {
             request.setResumeFrom(commandLine.getOptionValue(CLIManager.RESUME_FROM));
+        }
+
+        if (commandLine.hasOption(CLIManager.RESUME)) {
+            request.setResume(true);
         }
 
         if (commandLine.hasOption(CLIManager.PROJECT_LIST)) {
